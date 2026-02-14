@@ -13,7 +13,9 @@ export function mapThinkingLevel(level?: ThinkLevel): ThinkingLevel {
   return level;
 }
 
-export function resolveExecToolDefaults(config?: OpenClawConfig): ExecToolDefaults | undefined {
+export function resolveExecToolDefaults(
+  config?: OpenClawConfig,
+): ExecToolDefaults | undefined {
   const tools = config?.tools;
   if (!tools?.exec) {
     return undefined;
@@ -23,10 +25,10 @@ export function resolveExecToolDefaults(config?: OpenClawConfig): ExecToolDefaul
 
 /**
  * Resolve exec tool defaults with per-agent overrides merged over global defaults.
- * 
+ *
  * This function is used during session compaction to preserve per-agent exec policy
  * settings (security mode, approval requirements, etc.) that would otherwise be lost.
- * 
+ *
  * @param config - OpenClaw configuration object
  * @param sessionKey - Session key to derive agent ID (format: "agent:name:sessionId")
  * @returns Merged exec defaults with per-agent overrides, or empty object if no config
@@ -41,13 +43,17 @@ export function resolveAgentExecToolDefaults(
 
   const globalExec = config.tools?.exec;
 
-  if (!sessionKey || typeof sessionKey !== "string" || sessionKey.trim().length === 0) {
+  if (
+    !sessionKey ||
+    typeof sessionKey !== "string" ||
+    sessionKey.trim().length === 0
+  ) {
     return globalExec ?? {};
   }
 
   try {
     const resolved = resolveSessionAgentIds({ sessionKey, config });
-    
+
     if (!resolved || !resolved.sessionAgentId) {
       return globalExec ?? {};
     }
@@ -66,24 +72,25 @@ export function resolveAgentExecToolDefaults(
       backgroundMs: agentExec?.backgroundMs ?? globalExec?.backgroundMs,
       timeoutSec: agentExec?.timeoutSec ?? globalExec?.timeoutSec,
       approvalRunningNoticeMs:
-        agentExec?.approvalRunningNoticeMs ?? globalExec?.approvalRunningNoticeMs,
+        agentExec?.approvalRunningNoticeMs ??
+        globalExec?.approvalRunningNoticeMs,
       cleanupMs: agentExec?.cleanupMs ?? globalExec?.cleanupMs,
       notifyOnExit: agentExec?.notifyOnExit ?? globalExec?.notifyOnExit,
       elevated: agentExec?.elevated ?? globalExec?.elevated,
-      allowBackground: agentExec?.allowBackground ?? globalExec?.allowBackground,
+      allowBackground:
+        agentExec?.allowBackground ?? globalExec?.allowBackground,
       sandbox: agentExec?.sandbox ?? globalExec?.sandbox,
     };
-    
+
     return merged;
-    
   } catch (err) {
     const isExpectedError = err instanceof TypeError;
-    
+
     if (isExpectedError) {
       logVerbose(`Agent config resolution failed, using global defaults`);
       return globalExec ?? {};
     }
-    
+
     danger(`UNEXPECTED ERROR in resolveAgentExecToolDefaults:`, err);
     throw err;
   }
