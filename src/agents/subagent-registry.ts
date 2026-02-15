@@ -1,4 +1,5 @@
 import { promises as fs } from "node:fs";
+import path from "node:path";
 import { loadConfig } from "../config/config.js";
 import { callGateway } from "../gateway/call.js";
 import { onAgentEvent } from "../infra/agent-events.js";
@@ -31,6 +32,7 @@ export type SubagentRunRecord = {
   cleanupHandled?: boolean;
   suppressAnnounceReason?: "steer-restart" | "killed";
   attachmentsDir?: string;
+  attachmentsRootDir?: string;
   retainAttachmentsOnKeep?: boolean;
 };
 
@@ -253,6 +255,25 @@ function ensureListener() {
   });
 }
 
+async function safeRemoveAttachmentsDir(entry: SubagentRunRecord): Promise<void> {
+  if (!entry.attachmentsDir || !entry.attachmentsRootDir) {
+    return;
+  }
+  try {
+    const [rootReal, dirReal] = await Promise.all([
+      fs.realpath(entry.attachmentsRootDir),
+      fs.realpath(entry.attachmentsDir),
+    ]);
+    const rootWithSep = rootReal.endsWith(path.sep) ? rootReal : `${rootReal}${path.sep}`;
+    if (!dirReal.startsWith(rootWithSep)) {
+      return;
+    }
+    await fs.rm(dirReal, { recursive: true, force: true });
+  } catch {
+    // best effort
+  }
+}
+
 function finalizeSubagentCleanup(runId: string, cleanup: "delete" | "keep", didAnnounce: boolean) {
   const entry = subagentRuns.get(runId);
   if (!entry) {
@@ -267,8 +288,8 @@ function finalizeSubagentCleanup(runId: string, cleanup: "delete" | "keep", didA
   }
 
   const shouldDeleteAttachments = cleanup === "delete" || !entry.retainAttachmentsOnKeep;
-  if (shouldDeleteAttachments && entry.attachmentsDir) {
-    void fs.rm(entry.attachmentsDir, { recursive: true, force: true });
+  if (shouldDeleteAttachments) {
+    void safeRemoveAttachmentsDir(entry);
   }
 
   if (cleanup === "delete") {
@@ -422,6 +443,7 @@ export function registerSubagentRun(params: {
   model?: string;
   runTimeoutSeconds?: number;
   attachmentsDir?: string;
+  attachmentsRootDir?: string;
   retainAttachmentsOnKeep?: boolean;
 }) {
   const now = Date.now();
@@ -447,6 +469,7 @@ export function registerSubagentRun(params: {
     archiveAtMs,
     cleanupHandled: false,
     attachmentsDir: params.attachmentsDir,
+    attachmentsRootDir: params.attachmentsRootDir,
     retainAttachmentsOnKeep: params.retainAttachmentsOnKeep,
   });
   ensureListener();
