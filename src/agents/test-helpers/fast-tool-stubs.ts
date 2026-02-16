@@ -1,12 +1,10 @@
 import { vi } from "vitest";
 
-type StubTool = {
+export type StubTool = {
   name: string;
   description: string;
-  parameters: {
-    type: "object";
-    properties: Record<string, never>;
-  };
+  parameters: { type: "object"; properties: Record<string, unknown> };
+  // Keep the exported type portable: don't leak Vitest's mock types into .d.ts.
   execute: (...args: unknown[]) => unknown;
 };
 
@@ -14,7 +12,7 @@ export const stubTool = (name: string): StubTool => ({
   name,
   description: `${name} stub`,
   parameters: { type: "object", properties: {} },
-  execute: vi.fn(),
+  execute: vi.fn() as unknown as (...args: unknown[]) => unknown,
 });
 
 vi.mock("../tools/image-tool.js", () => ({
