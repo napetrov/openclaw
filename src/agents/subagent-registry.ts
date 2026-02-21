@@ -1,3 +1,5 @@
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import { loadConfig } from "../config/config.js";
 import {
   loadSessionStore,
@@ -561,6 +563,8 @@ async function sweepSubagentRuns() {
     clearPendingLifecycleError(runId);
     subagentRuns.delete(runId);
     mutated = true;
+    // Archive/purge is terminal for the run record; remove any retained attachments too.
+    await safeRemoveAttachmentsDir(entry);
     try {
       await callGateway({
         method: "sessions.delete",
@@ -637,6 +641,43 @@ function ensureListener() {
   });
 }
 
+async function safeRemoveAttachmentsDir(entry: SubagentRunRecord): Promise<void> {
+  if (!entry.attachmentsDir || !entry.attachmentsRootDir) {
+    return;
+  }
+
+  const resolveReal = async (targetPath: string): Promise<string | null> => {
+    try {
+      return await fs.realpath(targetPath);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException | undefined)?.code === "ENOENT") {
+        return null;
+      }
+      throw err;
+    }
+  };
+
+  try {
+    const [rootReal, dirReal] = await Promise.all([
+      resolveReal(entry.attachmentsRootDir),
+      resolveReal(entry.attachmentsDir),
+    ]);
+    if (!dirReal) {
+      return;
+    }
+
+    const rootBase = rootReal ?? path.resolve(entry.attachmentsRootDir);
+    const dirBase = rootReal ? dirReal : path.resolve(entry.attachmentsDir);
+    const rootWithSep = rootBase.endsWith(path.sep) ? rootBase : `${rootBase}${path.sep}`;
+    if (!dirBase.startsWith(rootWithSep)) {
+      return;
+    }
+    await fs.rm(dirBase, { recursive: true, force: true });
+  } catch {
+    // best effort
+  }
+}
+
 async function finalizeSubagentCleanup(
   runId: string,
   cleanup: "delete" | "keep",
@@ -685,6 +726,11 @@ async function finalizeSubagentCleanup(
     entry.lastAnnounceRetryAt = now;
   }
 
+  const shouldDeleteAttachments = cleanup === "delete" || !entry.retainAttachmentsOnKeep;
+  if (shouldDeleteAttachments) {
+    void safeRemoveAttachmentsDir(entry);
+  }
+
   if (deferredDecision.kind === "give-up") {
     const completionReason = resolveCleanupCompletionReason(entry);
     await emitCompletionEndedHookIfNeeded(entry, completionReason);
@@ -695,6 +741,13 @@ async function finalizeSubagentCleanup(
       cleanup: "keep",
       completedAt: now,
     });
+    return;
+  }
+
+  if (cleanup === "delete") {
+    subagentRuns.delete(runId);
+    persistSubagentRuns();
+    retryDeferredCompletedAnnounces(runId);
     return;
   }
 
@@ -905,6 +958,9 @@ export function registerSubagentRun(params: {
   runTimeoutSeconds?: number;
   expectsCompletionMessage?: boolean;
   spawnMode?: "run" | "session";
+  attachmentsDir?: string;
+  attachmentsRootDir?: string;
+  retainAttachmentsOnKeep?: boolean;
 }) {
   const now = Date.now();
   const cfg = loadConfig();
@@ -932,6 +988,9 @@ export function registerSubagentRun(params: {
     startedAt: now,
     archiveAtMs,
     cleanupHandled: false,
+    attachmentsDir: params.attachmentsDir,
+    attachmentsRootDir: params.attachmentsRootDir,
+    retainAttachmentsOnKeep: params.retainAttachmentsOnKeep,
   });
   ensureListener();
   persistSubagentRuns();
