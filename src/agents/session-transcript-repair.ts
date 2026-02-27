@@ -103,7 +103,7 @@ function redactSessionsSpawnAttachmentsArgs(value: unknown): unknown {
 }
 
 function sanitizeToolCallBlock(block: RawToolCallBlock): ToolCallBlock {
-  const name = typeof block.name === "string" ? block.name : undefined;
+  const name = typeof block.name === "string" ? block.name.trim() : undefined;
   const argCandidate =
     block.arguments && typeof block.arguments === "object"
       ? (block.arguments as Record<string, unknown>)
@@ -114,7 +114,7 @@ function sanitizeToolCallBlock(block: RawToolCallBlock): ToolCallBlock {
   const normalized: ToolCallBlock = {
     id: typeof block.id === "string" ? block.id : "unknown",
     type: typeof block.type === "string" ? (block.type as "toolCall") : "toolCall",
-    name: typeof block.name === "string" && block.name ? block.name : "unknown",
+    name: typeof block.name === "string" && block.name.trim() ? block.name.trim() : "unknown",
     arguments: argCandidate,
   };
 
