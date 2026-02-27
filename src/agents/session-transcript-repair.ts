@@ -253,20 +253,6 @@ export function repairToolCallInputs(
           continue;
         }
         nextContent.push(block);
-        continue;
-      }
-      // Normalize tool call names by trimming whitespace so that downstream
-      // lookup (toolsByName map) matches correctly even when the model emits
-      // names with leading/trailing spaces (e.g. " read" → "read").
-      if (isToolCallBlock(block) && typeof (block as ToolCallBlock).name === "string") {
-        const rawName = (block as ToolCallBlock).name as string;
-        if (rawName !== rawName.trim()) {
-          const normalized = { ...block, name: rawName.trim() } as typeof block;
-          nextContent.push(normalized);
-          messageChanged = true;
-          changed = true;
-          continue;
-        }
       }
       nextContent.push(block);
     }
