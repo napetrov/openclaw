@@ -258,7 +258,22 @@ export function repairToolCallInputs(
             }
             nextContent.push(sanitized);
           } else {
-            nextContent.push(block);
+            if (typeof (block as { name?: unknown }).name === "string") {
+              const rawName = (block as { name: string }).name;
+              const trimmedName = rawName.trim();
+              if (rawName !== trimmedName && trimmedName) {
+                nextContent.push({
+                  ...(block as Record<string, unknown>),
+                  name: trimmedName,
+                } as typeof block);
+                changed = true;
+                messageChanged = true;
+              } else {
+                nextContent.push(block);
+              }
+            } else {
+              nextContent.push(block);
+            }
           }
           continue;
         }
