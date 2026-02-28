@@ -244,12 +244,22 @@ export function repairToolCallInputs(
           (block as { type?: unknown }).type === "toolUse" ||
           (block as { type?: unknown }).type === "functionCall"
         ) {
-          const sanitized = sanitizeToolCallBlock(block);
-          if (sanitized !== block) {
-            changed = true;
-            messageChanged = true;
+          // Only sanitize (redact) sessions_spawn blocks; all others are passed through
+          // unchanged to preserve provider-specific shapes (e.g. toolUse.input for Anthropic).
+          const blockName =
+            typeof (block as { name?: unknown }).name === "string"
+              ? ((block as { name: string }).name.trim() as string)
+              : undefined;
+          if (blockName === "sessions_spawn") {
+            const sanitized = sanitizeToolCallBlock(block);
+            if (sanitized !== block) {
+              changed = true;
+              messageChanged = true;
+            }
+            nextContent.push(sanitized);
+          } else {
+            nextContent.push(block);
           }
-          nextContent.push(sanitized);
           continue;
         }
         nextContent.push(block);
