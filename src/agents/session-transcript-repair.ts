@@ -193,9 +193,10 @@ export function stripToolResultDetails(messages: AgentMessage[]): AgentMessage[]
       out.push(msg);
       continue;
     }
-    const { details: _details, ...rest } = msg as unknown as Record<string, unknown>;
+    const sanitized = { ...(msg as object) } as { details?: unknown };
+    delete sanitized.details;
     touched = true;
-    out.push(rest as unknown as AgentMessage);
+    out.push(sanitized as unknown as AgentMessage);
   }
   return touched ? out : messages;
 }
