@@ -649,6 +649,13 @@ export async function spawnSubagentDirect(
       childRunId = response.runId;
     }
   } catch (err) {
+    if (attachmentAbsDir) {
+      try {
+        await fs.rm(attachmentAbsDir, { recursive: true, force: true });
+      } catch {
+        // Best-effort cleanup only.
+      }
+    }
     if (threadBindingReady) {
       const hasEndedHook = hookRunner?.hasHooks("subagent_ended") === true;
       let endedHookEmitted = false;
@@ -701,23 +708,48 @@ export async function spawnSubagentDirect(
     };
   }
 
-  registerSubagentRun({
-    runId: childRunId,
-    childSessionKey,
-    requesterSessionKey: requesterInternalKey,
-    requesterOrigin,
-    requesterDisplayKey,
-    task,
-    cleanup,
-    label: label || undefined,
-    model: resolvedModel,
-    runTimeoutSeconds,
-    expectsCompletionMessage,
-    spawnMode,
-    attachmentsDir: attachmentAbsDir,
-    attachmentsRootDir: attachmentRootDir,
-    retainAttachmentsOnKeep: retainOnSessionKeep,
-  });
+  try {
+    registerSubagentRun({
+      runId: childRunId,
+      childSessionKey,
+      requesterSessionKey: requesterInternalKey,
+      requesterOrigin,
+      requesterDisplayKey,
+      task,
+      cleanup,
+      label: label || undefined,
+      model: resolvedModel,
+      runTimeoutSeconds,
+      expectsCompletionMessage,
+      spawnMode,
+      attachmentsDir: attachmentAbsDir,
+      attachmentsRootDir: attachmentRootDir,
+      retainAttachmentsOnKeep: retainOnSessionKeep,
+    });
+  } catch (err) {
+    if (attachmentAbsDir) {
+      try {
+        await fs.rm(attachmentAbsDir, { recursive: true, force: true });
+      } catch {
+        // Best-effort cleanup only.
+      }
+    }
+    try {
+      await callGateway({
+        method: "sessions.delete",
+        params: { key: childSessionKey, deleteTranscript: true, emitLifecycleHooks: false },
+        timeoutMs: 10_000,
+      });
+    } catch {
+      // Best-effort cleanup only.
+    }
+    return {
+      status: "error",
+      error: `Failed to register subagent run: ${summarizeError(err)}`,
+      childSessionKey,
+      runId: childRunId,
+    };
+  }
 
   if (hookRunner?.hasHooks("subagent_spawned")) {
     try {

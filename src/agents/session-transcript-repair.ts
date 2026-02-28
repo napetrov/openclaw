@@ -248,7 +248,7 @@ export function repairToolCallInputs(
           // unchanged to preserve provider-specific shapes (e.g. toolUse.input for Anthropic).
           const blockName =
             typeof (block as { name?: unknown }).name === "string"
-              ? ((block as { name: string }).name.trim() as string)
+              ? (block as { name: string }).name.trim()
               : undefined;
           if (blockName === "sessions_spawn") {
             const sanitized = sanitizeToolCallBlock(block);
@@ -464,5 +464,3 @@ export function repairToolUseResultPairing(messages: AgentMessage[]): ToolUseRep
     moved: changedOrMoved,
   };
 }
-Fri Feb 27 16:34:39 PST 2026
-x
