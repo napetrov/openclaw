@@ -4,6 +4,7 @@ import {
   sanitizeToolCallInputs,
   sanitizeToolUseResultPairing,
   repairToolUseResultPairing,
+  stripToolResultDetails,
 } from "./session-transcript-repair.js";
 
 const TOOL_CALL_BLOCK_TYPES = new Set(["toolCall", "toolUse", "functionCall"]);
@@ -399,5 +400,43 @@ describe("sanitizeToolCallInputs", () => {
     expect((toolCalls[0] as { name?: unknown }).name).toBe("read");
     expect((toolCalls[0] as { id?: unknown }).id).toBe("call_1");
     expect((toolCalls[0] as { arguments?: unknown }).arguments).toEqual({ path: "/tmp/test" });
+  });
+});
+
+
+describe("stripToolResultDetails", () => {
+  it("removes details only from toolResult messages", () => {
+    const input = [
+      {
+        role: "toolResult",
+        toolCallId: "call_1",
+        toolName: "read",
+        content: [{ type: "text", text: "ok" }],
+        details: { internal: true },
+      },
+      { role: "assistant", content: [{ type: "text", text: "keep me" }], details: { no: "touch" } },
+      { role: "user", content: "hello" },
+    ] as unknown as AgentMessage[];
+
+    const out = stripToolResultDetails(input) as Array<Record<string, unknown>>;
+
+    expect(Object.hasOwn(out[0] ?? {}, "details")).toBe(false);
+    expect((out[0] ?? {}).role).toBe("toolResult");
+
+    // Non-toolResult messages are preserved as-is.
+    expect(Object.hasOwn(out[1] ?? {}, "details")).toBe(true);
+    expect((out[1] ?? {}).role).toBe("assistant");
+    expect((out[2] ?? {}).role).toBe("user");
+  });
+
+  it("returns the same array reference when there are no toolResult details", () => {
+    const input = [
+      { role: "assistant", content: [{ type: "text", text: "a" }] },
+      { role: "toolResult", toolCallId: "call_1", toolName: "read", content: [{ type: "text", text: "ok" }] },
+      { role: "user", content: "b" },
+    ] as unknown as AgentMessage[];
+
+    const out = stripToolResultDetails(input);
+    expect(out).toBe(input);
   });
 });
