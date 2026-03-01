@@ -132,7 +132,6 @@ function sanitizeToolCallBlock(block: RawToolCallBlock): RawToolCallBlock {
   return next as RawToolCallBlock;
 }
 
-
 function makeMissingToolResult(params: {
   toolCallId: string;
   toolName?: string;

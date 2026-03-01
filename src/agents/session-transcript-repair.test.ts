@@ -383,7 +383,6 @@ describe("sanitizeToolCallInputs", () => {
     expect((toolCalls[0] as { name?: unknown }).name).toBe("read");
   });
 
-
   it("preserves toolUse input shape for sessions_spawn when no attachments are present", () => {
     const input = [
       {
@@ -455,7 +454,6 @@ describe("sanitizeToolCallInputs", () => {
   });
 });
 
-
 describe("stripToolResultDetails", () => {
   it("removes details only from toolResult messages", () => {
     const input = [
@@ -484,7 +482,12 @@ describe("stripToolResultDetails", () => {
   it("returns the same array reference when there are no toolResult details", () => {
     const input = [
       { role: "assistant", content: [{ type: "text", text: "a" }] },
-      { role: "toolResult", toolCallId: "call_1", toolName: "read", content: [{ type: "text", text: "ok" }] },
+      {
+        role: "toolResult",
+        toolCallId: "call_1",
+        toolName: "read",
+        content: [{ type: "text", text: "ok" }],
+      },
       { role: "user", content: "b" },
     ] as unknown as AgentMessage[];
 
