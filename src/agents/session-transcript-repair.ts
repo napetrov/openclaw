@@ -258,9 +258,9 @@ export function repairToolCallInputs(
           }
           continue;
         }
+      } else {
         nextContent.push(block);
       }
-      nextContent.push(block);
     }
 
     if (droppedInMessage > 0) {

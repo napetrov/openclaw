@@ -733,7 +733,7 @@ async function finalizeSubagentCleanup(
 
   const shouldDeleteAttachments = cleanup === "delete" || !entry.retainAttachmentsOnKeep;
   if (shouldDeleteAttachments) {
-    void safeRemoveAttachmentsDir(entry);
+    await safeRemoveAttachmentsDir(entry);
   }
 
   if (deferredDecision.kind === "give-up") {
