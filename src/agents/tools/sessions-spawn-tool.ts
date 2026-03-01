@@ -29,7 +29,7 @@ const SessionsSpawnToolSchema = Type.Object({
     Type.Array(
       Type.Object({
         name: Type.String(),
-        content: Type.String(),
+        content: Type.String({ maxLength: 6_700_000 }),
         encoding: Type.Optional(optionalStringEnum(["utf8", "base64"] as const)),
         mimeType: Type.Optional(Type.String()),
       }),
@@ -98,6 +98,13 @@ export function createSessionsSpawnTool(opts?: {
         : undefined;
 
       if (runtime === "acp") {
+        if (Array.isArray(attachments) && attachments.length > 0) {
+          return jsonResult({
+            status: "error",
+            error:
+              "attachments are currently unsupported for runtime=acp; use runtime=subagent or remove attachments",
+          });
+        }
         const result = await spawnAcpDirect(
           {
             task,
@@ -131,6 +138,10 @@ export function createSessionsSpawnTool(opts?: {
           cleanup,
           expectsCompletionMessage: true,
           attachments,
+          attachMountPath:
+            params.attachAs && typeof params.attachAs === "object"
+              ? readStringParam(params.attachAs as Record<string, unknown>, "mountPath")
+              : undefined,
         },
         {
           agentSessionKey: opts?.agentSessionKey,
