@@ -468,7 +468,7 @@ describe("stripToolResultDetails", () => {
       { role: "user", content: "hello" },
     ] as unknown as AgentMessage[];
 
-    const out = stripToolResultDetails(input) as Array<Record<string, unknown>>;
+    const out = stripToolResultDetails(input) as unknown as Array<Record<string, unknown>>;
 
     expect(Object.hasOwn(out[0] ?? {}, "details")).toBe(false);
     expect((out[0] ?? {}).role).toBe("toolResult");

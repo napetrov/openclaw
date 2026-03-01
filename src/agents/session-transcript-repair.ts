@@ -239,16 +239,14 @@ export function repairToolCallInputs(
               changed = true;
               messageChanged = true;
             }
-            nextContent.push(sanitized);
+            nextContent.push(sanitized as typeof block);
           } else {
             if (typeof (block as { name?: unknown }).name === "string") {
               const rawName = (block as { name: string }).name;
               const trimmedName = rawName.trim();
               if (rawName !== trimmedName && trimmedName) {
-                nextContent.push({
-                  ...(block as Record<string, unknown>),
-                  name: trimmedName,
-                } as typeof block);
+                const renamed = { ...(block as object), name: trimmedName } as typeof block;
+                nextContent.push(renamed);
                 changed = true;
                 messageChanged = true;
               } else {
