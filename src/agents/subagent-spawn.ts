@@ -446,8 +446,8 @@ export async function spawnSubagentDirect(
           method: "sessions.delete",
           params: {
             key: childSessionKey,
-            emitLifecycleHooks: options?.emitLifecycleHooks === true,
-            deleteTranscript: options?.deleteTranscript === true,
+            emitLifecycleHooks: false,
+            deleteTranscript: true,
           },
           timeoutMs: 10_000,
         });
