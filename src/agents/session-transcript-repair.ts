@@ -12,13 +12,6 @@ type RawToolCallBlock = {
   arguments?: unknown;
 };
 
-type ToolCallBlock = {
-  type: "toolCall";
-  id: string;
-  name: string;
-  arguments: Record<string, unknown>;
-};
-
 function isToolCallBlock(block: unknown): block is RawToolCallBlock {
   if (!block || typeof block !== "object") {
     return false;
@@ -102,53 +95,43 @@ function redactSessionsSpawnAttachmentsArgs(value: unknown): unknown {
   return { ...rec, attachments: next };
 }
 
-function sanitizeToolCallBlock(block: RawToolCallBlock): ToolCallBlock {
-  const name = typeof block.name === "string" ? block.name.trim() : undefined;
-  const argCandidate =
-    block.arguments && typeof block.arguments === "object"
-      ? (block.arguments as Record<string, unknown>)
-      : block.input && typeof block.input === "object"
-        ? (block.input as Record<string, unknown>)
-        : {};
+function sanitizeToolCallBlock(block: RawToolCallBlock): RawToolCallBlock {
+  const rawName = typeof block.name === "string" ? block.name : undefined;
+  const trimmedName = rawName?.trim();
+  const hasTrimmedName = typeof trimmedName === "string" && trimmedName.length > 0;
+  const normalizedName = hasTrimmedName ? trimmedName : undefined;
+  const nameChanged = hasTrimmedName && rawName !== trimmedName;
 
-  const normalized: ToolCallBlock = {
-    id: typeof block.id === "string" ? block.id : "unknown",
-    type: typeof block.type === "string" ? (block.type as "toolCall") : "toolCall",
-    name: typeof block.name === "string" && block.name.trim() ? block.name.trim() : "unknown",
-    arguments: argCandidate,
-  };
+  const isSessionsSpawn = normalizedName?.toLowerCase() === "sessions_spawn";
 
-  if (name !== "sessions_spawn") {
-    return normalized;
+  if (!isSessionsSpawn) {
+    if (!nameChanged) {
+      return block;
+    }
+    return { ...(block as Record<string, unknown>), name: normalizedName } as RawToolCallBlock;
   }
+
   // Redact large/sensitive inline attachment content from persisted transcripts.
   // Apply redaction to both `.arguments` and `.input` properties since block structures can vary
   const nextArgs = redactSessionsSpawnAttachmentsArgs(block.arguments);
   const nextInput = redactSessionsSpawnAttachmentsArgs(block.input);
-  if (nextArgs === block.arguments && nextInput === block.input) {
-    return normalized;
-  }
-  const merged =
-    nextArgs && typeof nextArgs === "object"
-      ? (nextArgs as Record<string, unknown>)
-      : nextInput && typeof nextInput === "object"
-        ? (nextInput as Record<string, unknown>)
-        : normalized.arguments;
-
-  // If original block had an input property, make sure we return it sanitized
-  // This is required for Google Cloud Vertex AI which validates the exact original shape
-  if ("input" in block && typeof block.input === "object" && block.input !== null) {
-    const inputObj =
-      nextInput && typeof nextInput === "object"
-        ? nextInput
-        : nextArgs && typeof nextArgs === "object"
-          ? nextArgs
-          : {};
-    return { ...normalized, arguments: merged, input: inputObj } as unknown as ToolCallBlock;
+  if (nextArgs === block.arguments && nextInput === block.input && !nameChanged) {
+    return block;
   }
 
-  return { ...normalized, arguments: merged };
+  const next = { ...(block as Record<string, unknown>) };
+  if (nameChanged && normalizedName) {
+    next.name = normalizedName;
+  }
+  if (nextArgs !== block.arguments || Object.hasOwn(block, "arguments")) {
+    next.arguments = nextArgs;
+  }
+  if (nextInput !== block.input || Object.hasOwn(block, "input")) {
+    next.input = nextInput;
+  }
+  return next as RawToolCallBlock;
 }
+
 
 function makeMissingToolResult(params: {
   toolCallId: string;
@@ -251,7 +234,7 @@ export function repairToolCallInputs(
             typeof (block as { name?: unknown }).name === "string"
               ? (block as { name: string }).name.trim()
               : undefined;
-          if (blockName === "sessions_spawn") {
+          if (blockName?.toLowerCase() === "sessions_spawn") {
             const sanitized = sanitizeToolCallBlock(block);
             if (sanitized !== block) {
               changed = true;
