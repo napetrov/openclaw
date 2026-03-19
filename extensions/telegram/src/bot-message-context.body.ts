@@ -8,12 +8,14 @@ import { resolveControlCommandGate } from "openclaw/plugin-sdk/channel-runtime";
 import { formatLocationText, type NormalizedLocation } from "openclaw/plugin-sdk/channel-runtime";
 import { logInboundDrop } from "openclaw/plugin-sdk/channel-runtime";
 import { resolveMentionGatingWithBypass } from "openclaw/plugin-sdk/channel-runtime";
+import { ALLOWED_INGEST_HOOKS } from "openclaw/plugin-sdk/config-runtime";
 import type { OpenClawConfig } from "openclaw/plugin-sdk/config-runtime";
 import type {
   TelegramDirectConfig,
   TelegramGroupConfig,
   TelegramTopicConfig,
 } from "openclaw/plugin-sdk/config-runtime";
+import { getGlobalHookRunner } from "openclaw/plugin-sdk/plugin-runtime";
 import { hasControlCommand } from "openclaw/plugin-sdk/reply-runtime";
 import {
   recordPendingHistoryEntryIfEnabled,
@@ -22,6 +24,7 @@ import {
 import { buildMentionRegexes, matchesMentionWithExplicit } from "openclaw/plugin-sdk/reply-runtime";
 import type { MsgContext } from "openclaw/plugin-sdk/reply-runtime";
 import { logVerbose } from "openclaw/plugin-sdk/runtime-env";
+import { sanitizeUserText } from "openclaw/plugin-sdk/text-runtime";
 import type { NormalizedAllowFrom } from "./bot-access.js";
 import { isSenderAllowed } from "./bot-access.js";
 import type {
@@ -267,6 +270,59 @@ export async function resolveTelegramInboundBody(params: {
           }
         : null,
     });
+
+    // Silent ingest: run hooks on non-mentioned group messages
+    const ingestConfig = topicConfig?.ingest ?? groupConfig?.ingest;
+    if (ingestConfig) {
+      const { enabled, hooks } = ingestConfig;
+      if (enabled && hooks.length > 0 && rawBody && rawBody.trim().length > 0) {
+        const hookRunner = getGlobalHookRunner();
+        if (hookRunner) {
+          const validHooks = hooks.filter((h: string): h is string =>
+            ALLOWED_INGEST_HOOKS.includes(h as (typeof ALLOWED_INGEST_HOOKS)[number]),
+          );
+          if (validHooks.length > 0) {
+            const messageIdForHook =
+              typeof msg.message_id === "number" ? String(msg.message_id) : undefined;
+            const sanitizedMetadata = {
+              to: String(chatId),
+              provider: "telegram",
+              surface: "telegram",
+              threadId: resolvedThreadId,
+              originatingChannel: "telegram",
+              originatingTo: String(chatId),
+              messageId: messageIdForHook,
+              senderId: senderId || undefined,
+              senderName: sanitizeUserText(buildSenderLabel(msg, senderId || chatId)),
+              senderUsername: sanitizeUserText(senderUsername),
+            };
+            const HOOK_TIMEOUT_MS = 5000;
+            const timeoutPromise = new Promise<void>((_, reject) => {
+              setTimeout(() => reject(new Error("Hook timeout")), HOOK_TIMEOUT_MS);
+            });
+            void Promise.race([
+              hookRunner.runMessageReceived(
+                {
+                  from: String(chatId),
+                  content: rawBody,
+                  timestamp: msg.date ? msg.date * 1000 : undefined,
+                  metadata: sanitizedMetadata,
+                },
+                {
+                  channelId: "telegram",
+                  conversationId: String(chatId),
+                },
+              ),
+              timeoutPromise,
+            ]).catch((err: unknown) => {
+              const errorMsg = err instanceof Error ? err.message : "Unknown error";
+              logVerbose(`telegram: ingest hook failed: ${errorMsg}`);
+            });
+          }
+        }
+      }
+    }
+
     return null;
   }
 

@@ -220,6 +220,8 @@ export type TelegramAccountConfig = {
 
 export type TelegramTopicConfig = {
   requireMention?: boolean;
+  /** Silent ingest: run hooks on non-mentioned messages in this topic. */
+  ingest?: { enabled: boolean; hooks: string[] };
   /** Per-topic override for group message policy (open|disabled|allowlist). */
   groupPolicy?: GroupPolicy;
   /** If specified, only load these skills for this topic. Omit = all skills; empty = no skills. */
@@ -238,6 +240,8 @@ export type TelegramTopicConfig = {
 
 export type TelegramGroupConfig = {
   requireMention?: boolean;
+  /** Silent ingest: run hooks on non-mentioned messages in this group. */
+  ingest?: { enabled: boolean; hooks: string[] };
   /** Per-group override for group message policy (open|disabled|allowlist). */
   groupPolicy?: GroupPolicy;
   /** Optional tool policy overrides for this group. */
@@ -260,6 +264,8 @@ export type TelegramGroupConfig = {
 export type TelegramDirectConfig = {
   /** Per-DM override for DM message policy (open|disabled|allowlist). */
   dmPolicy?: DmPolicy;
+  /** Silent ingest: run hooks on non-mentioned messages (DM sessions; rare use-case). */
+  ingest?: { enabled: boolean; hooks: string[] };
   /** Optional tool policy overrides for this DM. */
   tools?: GroupToolPolicyConfig;
   toolsBySender?: GroupToolPolicyBySenderConfig;

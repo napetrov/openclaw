@@ -40,3 +40,5 @@ export {
   normalizeResolvedSecretInputString,
   normalizeSecretInputString,
 } from "../config/types.secrets.js";
+export { ALLOWED_INGEST_HOOKS } from "../config/ingest-hooks.js";
+export type { AllowedIngestHook } from "../config/ingest-hooks.js";
