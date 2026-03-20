@@ -264,8 +264,6 @@ export type TelegramGroupConfig = {
 export type TelegramDirectConfig = {
   /** Per-DM override for DM message policy (open|disabled|allowlist). */
   dmPolicy?: DmPolicy;
-  /** Silent ingest: run hooks on non-mentioned messages (DM sessions; rare use-case). */
-  ingest?: { enabled: boolean; hooks: string[] };
   /** Optional tool policy overrides for this DM. */
   tools?: GroupToolPolicyConfig;
   toolsBySender?: GroupToolPolicyBySenderConfig;
