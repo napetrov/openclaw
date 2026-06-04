@@ -24,6 +24,7 @@ import {
 } from "./zod-schema.core.js";
 import { HookMappingSchema, HooksGmailSchema, InternalHooksSchema } from "./zod-schema.hooks.js";
 import { ProxyConfigSchema } from "./zod-schema.proxy.js";
+import { RuntimeContextConfigSchema } from "./zod-schema.runtime-context.js";
 import { sensitive } from "./zod-schema.sensitive.js";
 import {
   CommandsSchema,
@@ -795,6 +796,7 @@ export const OpenClawSchema = z
     nodeHost: NodeHostSchema,
     agents: AgentsSchema,
     tools: ToolsSchema,
+    runtimeContext: RuntimeContextConfigSchema,
     security: SecuritySchema,
     bindings: BindingsSchema,
     broadcast: BroadcastSchema,
